@@ -1,13 +1,12 @@
-import { Inject, Injectable } from '@nestjs/common';
-import { Db } from 'mongodb';
-import { MONGO_DB } from '../database/database.module';
-import type { ReservationDocument } from '../reservations/reservation.types';
+import { Injectable } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
 import {
-  RESERVATIONS_COLLECTION,
-  ReservationStatus,
-  SEATS_COLLECTION,
-  SeatStatus,
-} from './constants';
+  Reservation,
+  ReservationDocument,
+} from '../reservations/schemas/reservation.schema';
+import { Seat, SeatDocument } from '../seats/schemas/seat.schema';
+import { ReservationStatus, SeatStatus } from './constants';
 
 /**
  * plan.md forbids setTimeout/cron/BullMQ/Redis for expiration. Instead, every
@@ -17,23 +16,26 @@ import {
  */
 @Injectable()
 export class ExpiryService {
-  constructor(@Inject(MONGO_DB) private readonly db: Db) {}
+  constructor(
+    @InjectModel(Reservation.name)
+    private readonly reservationModel: Model<ReservationDocument>,
+    @InjectModel(Seat.name) private readonly seatModel: Model<SeatDocument>,
+  ) {}
 
   async releaseExpired(): Promise<void> {
     const now = new Date();
-    const expired = this.db
-      .collection<ReservationDocument>(RESERVATIONS_COLLECTION)
-      .find({ status: ReservationStatus.LOCKED, expiresAt: { $lt: now } });
+    const expired = await this.reservationModel.find({
+      status: ReservationStatus.LOCKED,
+      expiresAt: { $lt: now },
+    });
 
-    for await (const reservation of expired) {
-      await this.db
-        .collection(RESERVATIONS_COLLECTION)
-        .updateOne(
-          { _id: reservation._id, status: ReservationStatus.LOCKED },
-          { $set: { status: ReservationStatus.EXPIRED, updatedAt: now } },
-        );
+    for (const reservation of expired) {
+      await this.reservationModel.updateOne(
+        { _id: reservation._id, status: ReservationStatus.LOCKED },
+        { $set: { status: ReservationStatus.EXPIRED } },
+      );
 
-      await this.db.collection(SEATS_COLLECTION).updateOne(
+      await this.seatModel.updateOne(
         { _id: reservation.seatId, status: SeatStatus.LOCKED },
         {
           $set: {
@@ -41,7 +43,6 @@ export class ExpiryService {
             lockedBy: null,
             reservationId: null,
             expiresAt: null,
-            updatedAt: now,
           },
         },
       );

@@ -1,13 +1,13 @@
-import { Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import { Db, ObjectId } from 'mongodb';
-import { MONGO_DB } from '../database/database.module';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model, Types } from 'mongoose';
 import { ExpiryService } from '../common/expiry.service';
-import { SEATS_COLLECTION, SeatStatus } from '../common/constants';
+import { SeatStatus } from '../common/constants';
+import { Seat, SeatDocument } from './schemas/seat.schema';
 import {
   SeatResponseDto,
   SeatStatisticsResponseDto,
 } from './dto/seat-response.dto';
-import type { SeatDocument } from './seat.types';
 
 const SEAT_ROWS = ['A', 'B', 'C', 'D', 'E'];
 const SEATS_PER_ROW = 10;
@@ -17,47 +17,33 @@ export class SeatsService implements OnModuleInit {
   private readonly logger = new Logger(SeatsService.name);
 
   constructor(
-    @Inject(MONGO_DB) private readonly db: Db,
+    @InjectModel(Seat.name) private readonly seatModel: Model<SeatDocument>,
     private readonly expiryService: ExpiryService,
   ) {}
 
-  private get collection() {
-    return this.db.collection<SeatDocument>(SEATS_COLLECTION);
-  }
-
   async onModuleInit(): Promise<void> {
-    const count = await this.collection.countDocuments();
+    const count = await this.seatModel.countDocuments();
     if (count > 0) return;
 
-    const now = new Date();
-    const seats: SeatDocument[] = [];
+    const seats: Partial<Seat>[] = [];
     for (const row of SEAT_ROWS) {
       for (let number = 1; number <= SEATS_PER_ROW; number += 1) {
         seats.push({
-          _id: new ObjectId(),
           seatNumber: `${row}-${number}`,
           row,
           number,
           status: SeatStatus.AVAILABLE,
-          lockedBy: null,
-          reservationId: null,
-          expiresAt: null,
-          createdAt: now,
-          updatedAt: now,
         });
       }
     }
 
-    await this.collection.insertMany(seats);
+    await this.seatModel.insertMany(seats);
     this.logger.log(`Seeded ${seats.length} seats`);
   }
 
   async findAll(): Promise<SeatResponseDto[]> {
     await this.expiryService.releaseExpired();
-    const seats = await this.collection
-      .find()
-      .sort({ row: 1, number: 1 })
-      .toArray();
+    const seats = await this.seatModel.find().sort({ row: 1, number: 1 });
     return seats.map(toSeatResponse);
   }
 
@@ -65,27 +51,27 @@ export class SeatsService implements OnModuleInit {
     await this.expiryService.releaseExpired();
 
     const [total, available, locked, sold] = await Promise.all([
-      this.collection.countDocuments(),
-      this.collection.countDocuments({ status: SeatStatus.AVAILABLE }),
-      this.collection.countDocuments({ status: SeatStatus.LOCKED }),
-      this.collection.countDocuments({ status: SeatStatus.PURCHASED }),
+      this.seatModel.countDocuments(),
+      this.seatModel.countDocuments({ status: SeatStatus.AVAILABLE }),
+      this.seatModel.countDocuments({ status: SeatStatus.LOCKED }),
+      this.seatModel.countDocuments({ status: SeatStatus.PURCHASED }),
     ]);
 
     return { total, available, locked, sold };
   }
 
-  async findById(seatId: ObjectId): Promise<SeatDocument | null> {
-    return this.collection.findOne({ _id: seatId });
+  async findById(seatId: Types.ObjectId): Promise<SeatDocument | null> {
+    return this.seatModel.findById(seatId);
   }
 
   /** The single atomic query that prevents overbooking. */
   async lockSeat(
-    seatId: ObjectId,
+    seatId: Types.ObjectId,
     userId: string,
-    reservationId: ObjectId,
+    reservationId: Types.ObjectId,
     expiresAt: Date,
   ): Promise<SeatDocument | null> {
-    return this.collection.findOneAndUpdate(
+    return this.seatModel.findOneAndUpdate(
       { _id: seatId, status: SeatStatus.AVAILABLE },
       {
         $set: {
@@ -93,15 +79,14 @@ export class SeatsService implements OnModuleInit {
           lockedBy: userId,
           reservationId,
           expiresAt,
-          updatedAt: new Date(),
         },
       },
-      { returnDocument: 'after' },
+      { new: true },
     );
   }
 
-  async releaseSeat(seatId: ObjectId): Promise<void> {
-    await this.collection.updateOne(
+  async releaseSeat(seatId: Types.ObjectId): Promise<void> {
+    await this.seatModel.updateOne(
       { _id: seatId, status: SeatStatus.LOCKED },
       {
         $set: {
@@ -109,22 +94,15 @@ export class SeatsService implements OnModuleInit {
           lockedBy: null,
           reservationId: null,
           expiresAt: null,
-          updatedAt: new Date(),
         },
       },
     );
   }
 
-  async markPurchased(seatId: ObjectId): Promise<void> {
-    await this.collection.updateOne(
+  async markPurchased(seatId: Types.ObjectId): Promise<void> {
+    await this.seatModel.updateOne(
       { _id: seatId, status: SeatStatus.LOCKED },
-      {
-        $set: {
-          status: SeatStatus.PURCHASED,
-          expiresAt: null,
-          updatedAt: new Date(),
-        },
-      },
+      { $set: { status: SeatStatus.PURCHASED, expiresAt: null } },
     );
   }
 }

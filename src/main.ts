@@ -22,7 +22,7 @@ async function bootstrap() {
   server.use('/api/auth', toNodeHandler(auth));
 
   const app = await NestFactory.create(
-    AppModule.forRoot(db, auth),
+    AppModule.forRoot(auth),
     new ExpressAdapter(server),
   );
 

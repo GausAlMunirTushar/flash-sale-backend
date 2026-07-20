@@ -1,34 +1,27 @@
 import {
   ConflictException,
   GoneException,
-  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Db, ObjectId } from 'mongodb';
-import { MONGO_DB } from '../database/database.module';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model, Types } from 'mongoose';
 import { ExpiryService } from '../common/expiry.service';
-import {
-  RESERVATIONS_COLLECTION,
-  ReservationStatus,
-} from '../common/constants';
+import { ReservationStatus } from '../common/constants';
 import { SeatsService } from '../seats/seats.service';
 import { ReservationResponseDto } from './dto/reservation-response.dto';
-import type { ReservationDocument } from './reservation.types';
+import { Reservation, ReservationDocument } from './schemas/reservation.schema';
 
 @Injectable()
 export class ReservationsService {
   constructor(
-    @Inject(MONGO_DB) private readonly db: Db,
+    @InjectModel(Reservation.name)
+    private readonly reservationModel: Model<ReservationDocument>,
     private readonly expiryService: ExpiryService,
     private readonly seatsService: SeatsService,
     private readonly configService: ConfigService,
   ) {}
-
-  private get collection() {
-    return this.db.collection<ReservationDocument>(RESERVATIONS_COLLECTION);
-  }
 
   async reserve(
     userId: string,
@@ -36,7 +29,7 @@ export class ReservationsService {
   ): Promise<ReservationResponseDto> {
     await this.expiryService.releaseExpired();
 
-    const active = await this.collection.findOne({
+    const active = await this.reservationModel.findOne({
       userId,
       status: ReservationStatus.LOCKED,
     });
@@ -50,10 +43,10 @@ export class ReservationsService {
     );
     const now = new Date();
     const expiresAt = new Date(now.getTime() + holdSeconds * 1000);
-    const reservationId = new ObjectId();
+    const reservationId = new Types.ObjectId();
 
     const lockedSeat = await this.seatsService.lockSeat(
-      new ObjectId(seatId),
+      new Types.ObjectId(seatId),
       userId,
       reservationId,
       expiresAt,
@@ -63,7 +56,7 @@ export class ReservationsService {
       throw new ConflictException('Seat already reserved');
     }
 
-    const reservation: ReservationDocument = {
+    const reservation = await this.reservationModel.create({
       _id: reservationId,
       reservationCode: generateReservationCode(),
       seatId: lockedSeat._id,
@@ -72,35 +65,30 @@ export class ReservationsService {
       status: ReservationStatus.LOCKED,
       expiresAt,
       paidAt: null,
-      createdAt: now,
-      updatedAt: now,
-    };
+    });
 
-    await this.collection.insertOne(reservation);
     return toReservationResponse(reservation);
   }
 
   async findMine(userId: string): Promise<ReservationResponseDto | null> {
     await this.expiryService.releaseExpired();
 
-    const reservation = await this.collection.findOne(
-      { userId },
-      { sort: { createdAt: -1 } },
-    );
-
+    const reservation = await this.reservationModel
+      .findOne({ userId })
+      .sort({ createdAt: -1 });
     return reservation ? toReservationResponse(reservation) : null;
   }
 
   async cancel(userId: string, reservationId: string): Promise<void> {
     await this.expiryService.releaseExpired();
 
-    const reservation = await this.collection.findOneAndUpdate(
+    const reservation = await this.reservationModel.findOneAndUpdate(
       {
-        _id: new ObjectId(reservationId),
+        _id: new Types.ObjectId(reservationId),
         userId,
         status: ReservationStatus.LOCKED,
       },
-      { $set: { status: ReservationStatus.CANCELLED, updatedAt: new Date() } },
+      { $set: { status: ReservationStatus.CANCELLED } },
     );
 
     if (!reservation) {
@@ -116,8 +104,8 @@ export class ReservationsService {
   ): Promise<ReservationResponseDto> {
     await this.expiryService.releaseExpired();
 
-    const reservation = await this.collection.findOne({
-      _id: new ObjectId(reservationId),
+    const reservation = await this.reservationModel.findOne({
+      _id: new Types.ObjectId(reservationId),
       userId,
     });
 
@@ -132,10 +120,10 @@ export class ReservationsService {
     }
 
     const paidAt = new Date();
-    const updated = await this.collection.findOneAndUpdate(
+    const updated = await this.reservationModel.findOneAndUpdate(
       { _id: reservation._id, status: ReservationStatus.LOCKED },
-      { $set: { status: ReservationStatus.PAID, paidAt, updatedAt: paidAt } },
-      { returnDocument: 'after' },
+      { $set: { status: ReservationStatus.PAID, paidAt } },
+      { new: true },
     );
 
     if (!updated) {
