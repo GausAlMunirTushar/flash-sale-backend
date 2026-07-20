@@ -21,9 +21,7 @@ export class AppModule {
     return {
       module: AppModule,
       imports: [
-        ThrottlerModule.forRoot([
-          { ttl: 60000, limit: 100 },
-        ]),
+        ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
         ConfigModule.forRoot({ isGlobal: true, load: [configuration] }),
         MongooseModule.forRoot(config.mongodbUri),
         AuthModule.forRoot(auth),
@@ -33,10 +31,7 @@ export class AppModule {
         PaymentsModule,
       ],
       controllers: [AppController],
-      providers: [
-        AppService,
-        { provide: APP_GUARD, useClass: ThrottlerGuard },
-      ],
+      providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],
     };
   }
 }

@@ -27,9 +27,12 @@ async function bootstrap() {
     new ExpressAdapter(server),
   );
 
-  app.use(helmet());
-  app.use(compression());
-  app.use(cookieParser());
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+  (app as any).use(helmet());
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+  (app as any).use(compression());
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+  (app as any).use(cookieParser());
   app.enableCors({ origin: config.frontendUrl, credentials: true });
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
   app.useGlobalFilters(new HttpExceptionFilter());

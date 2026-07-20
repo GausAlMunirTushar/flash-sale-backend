@@ -155,14 +155,14 @@ export class ReservationsService {
       const seat = await this.seatsService.findById(reservation.seatId);
       if (!seat) {
         this.logger.warn(
-          `Orphaned reservation ${reservation._id} — seat ${reservation.seatId} not found`,
+          `Orphaned reservation ${String(reservation._id)} — seat ${String(reservation.seatId)} not found`,
         );
         continue;
       }
       if (seat.status === SeatStatus.LOCKED) {
         await this.seatsService.markPurchased(reservation.seatId);
         this.logger.log(
-          `Reconciled reservation ${reservation._id}: seat ${reservation.seatId} was LOCKED but reservation is PAID`,
+          `Reconciled reservation ${String(reservation._id)}: seat ${String(reservation.seatId)} was LOCKED but reservation is PAID`,
         );
         fixed++;
       }

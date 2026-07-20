@@ -53,7 +53,7 @@ export class ReservationsController {
   @ApiOperation({ summary: 'Cancel an active reservation' })
   cancel(
     @CurrentUser() user: { id: string },
-    @Param('id', ParseMongoIdPipe) id: string,
+    @Param('id', new ParseMongoIdPipe()) id: string,
   ): Promise<void> {
     return this.reservationsService.cancel(user.id, id);
   }

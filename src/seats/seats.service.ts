@@ -47,7 +47,6 @@ export class SeatsService implements OnModuleInit {
   }
 
   async getStatistics(): Promise<SeatStatisticsResponseDto> {
-
     const [total, available, locked, sold] = await Promise.all([
       this.seatModel.countDocuments(),
       this.seatModel.countDocuments({ status: SeatStatus.AVAILABLE }),
