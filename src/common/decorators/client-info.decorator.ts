@@ -20,8 +20,7 @@ export const ClientInfo = createParamDecorator(
 
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     const authUser = (request as any).authUser as
-      | { id: string; isAnonymous?: boolean | null }
-      | undefined;
+      { id: string; isAnonymous?: boolean | null } | undefined;
 
     return {
       ip,

@@ -5,6 +5,8 @@ export interface AppConfig {
   betterAuthSecret: string;
   betterAuthUrl: string;
   reservationHoldSeconds: number;
+  smsApiKey: string;
+  smsSenderId: string;
 }
 
 export default (): AppConfig => {
@@ -27,5 +29,7 @@ export default (): AppConfig => {
       process.env.RESERVATION_HOLD_SECONDS ?? '300',
       10,
     ),
+    smsApiKey: process.env.SMS_API_KEY ?? '',
+    smsSenderId: process.env.SMS_SENDER_ID ?? '',
   };
 };

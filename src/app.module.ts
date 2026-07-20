@@ -8,10 +8,14 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import type { Auth } from './auth/better-auth';
+import { ActivityModule } from './activity/activity.module';
 import { CommonModule } from './common/common.module';
+import { GuestModule } from './guest/guest.module';
 import { PaymentsModule } from './payments/payments.module';
 import { ReservationsModule } from './reservations/reservations.module';
 import { SeatsModule } from './seats/seats.module';
+import { SmsModule } from './sms/sms.module';
+import { UserProfileModule } from './user-profile/user-profile.module';
 
 @Module({})
 export class AppModule {
@@ -25,7 +29,11 @@ export class AppModule {
         ConfigModule.forRoot({ isGlobal: true, load: [configuration] }),
         MongooseModule.forRoot(config.mongodbUri),
         AuthModule.forRoot(auth),
+        ActivityModule,
         CommonModule,
+        GuestModule,
+        SmsModule,
+        UserProfileModule,
         SeatsModule,
         ReservationsModule,
         PaymentsModule,

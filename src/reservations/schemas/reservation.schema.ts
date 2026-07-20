@@ -41,6 +41,9 @@ export class Reservation {
   @Prop({ type: Boolean, default: true })
   isGuest!: boolean;
 
+  @Prop({ type: String, default: null })
+  phone!: string | null;
+
   createdAt!: Date;
   updatedAt!: Date;
 }

@@ -10,9 +10,12 @@ import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import crypto from 'crypto';
 import { Model, Types } from 'mongoose';
+import { ActivityService } from '../activity/activity.service';
 import { ExpiryService } from '../common/expiry.service';
 import { ReservationStatus, SeatStatus } from '../common/constants';
 import { SeatsService } from '../seats/seats.service';
+import { SmsService } from '../sms/sms.service';
+import { UserProfileService } from '../user-profile/user-profile.service';
 import { ReservationResponseDto } from './dto/reservation-response.dto';
 import { Reservation, ReservationDocument } from './schemas/reservation.schema';
 
@@ -26,12 +29,16 @@ export class ReservationsService {
     private readonly expiryService: ExpiryService,
     private readonly seatsService: SeatsService,
     private readonly configService: ConfigService,
+    private readonly activityService: ActivityService,
+    private readonly smsService: SmsService,
+    private readonly userProfileService: UserProfileService,
   ) {}
 
   async reserve(
     userId: string,
     seatId: string,
     clientInfo?: { ip: string; userAgent: string; isGuest: boolean },
+    phone?: string,
   ): Promise<ReservationResponseDto> {
     await this.expiryService.releaseExpired();
 
@@ -67,6 +74,21 @@ export class ReservationsService {
         userIp: clientInfo?.ip ?? null,
         userAgent: clientInfo?.userAgent ?? null,
         isGuest: clientInfo?.isGuest ?? true,
+        phone: phone ?? null,
+      });
+
+      if (phone) {
+        await this.userProfileService.setPhone(userId, phone);
+      }
+
+      await this.activityService.log({
+        userId,
+        action: 'RESERVATION_CREATE',
+        ip: clientInfo?.ip,
+        userAgent: clientInfo?.userAgent,
+        isGuest: clientInfo?.isGuest ?? true,
+        seatId: lockedSeat._id,
+        reservationId: reservation._id,
       });
 
       return toReservationResponse(reservation);
@@ -111,6 +133,14 @@ export class ReservationsService {
     }
 
     await this.seatsService.releaseSeat(reservation.seatId);
+
+    await this.activityService.log({
+      userId,
+      action: 'RESERVATION_CANCEL',
+      isGuest: false,
+      reservationId: reservation._id,
+      seatId: reservation.seatId,
+    });
   }
 
   async pay(
@@ -146,6 +176,31 @@ export class ReservationsService {
     }
 
     await this.seatsService.markPurchased(reservation.seatId);
+
+    await this.activityService.log({
+      userId,
+      action: 'PAYMENT_COMPLETE',
+      isGuest: false,
+      reservationId: reservation._id,
+      seatId: reservation.seatId,
+    });
+
+    const phone =
+      reservation.phone || (await this.userProfileService.getPhone(userId));
+    if (phone) {
+      this.smsService
+        .sendPurchaseConfirmation(
+          phone,
+          updated.seatNumber,
+          updated.reservationCode,
+        )
+        .catch((err: unknown) =>
+          this.logger.warn(
+            `SMS failed for ${phone} — payment succeeded: ${(err as Error).message}`,
+          ),
+        );
+    }
+
     return toReservationResponse(updated);
   }
 
@@ -193,6 +248,7 @@ function toReservationResponse(
     userIp: reservation.userIp,
     userAgent: reservation.userAgent,
     isGuest: reservation.isGuest,
+    phone: reservation.phone,
     createdAt: reservation.createdAt,
   };
 }

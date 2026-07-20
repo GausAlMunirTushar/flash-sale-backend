@@ -32,6 +32,9 @@ export class ReservationResponseDto {
   @ApiProperty({ example: true })
   isGuest: boolean;
 
+  @ApiProperty({ example: '88017XXXXXXXX', nullable: true })
+  phone: string | null;
+
   @ApiProperty({ example: '2026-07-20T10:24:30.000Z' })
   createdAt: Date;
 }

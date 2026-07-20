@@ -1,5 +1,5 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsMongoId, IsNotEmpty, IsString } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsMongoId, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 export class CreateReservationDto {
   @ApiProperty({
@@ -10,4 +10,12 @@ export class CreateReservationDto {
   @IsNotEmpty()
   @IsMongoId()
   seatId: string;
+
+  @ApiPropertyOptional({
+    example: '01726XXXXXX',
+    description: 'Phone number for SMS receipt (required for guests)',
+  })
+  @IsOptional()
+  @IsString()
+  phone?: string;
 }

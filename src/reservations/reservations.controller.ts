@@ -39,7 +39,12 @@ export class ReservationsController {
     @Body() dto: CreateReservationDto,
     @ClientInfo() clientInfo: ClientInfoType,
   ): Promise<ReservationResponseDto> {
-    return this.reservationsService.reserve(user.id, dto.seatId, clientInfo);
+    return this.reservationsService.reserve(
+      user.id,
+      dto.seatId,
+      clientInfo,
+      dto.phone,
+    );
   }
 
   @Get('me')
