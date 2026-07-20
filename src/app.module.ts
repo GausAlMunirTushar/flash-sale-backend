@@ -1,6 +1,8 @@
 import { DynamicModule, Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 import configuration from './config/configuration';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -19,6 +21,9 @@ export class AppModule {
     return {
       module: AppModule,
       imports: [
+        ThrottlerModule.forRoot([
+          { ttl: 60000, limit: 100 },
+        ]),
         ConfigModule.forRoot({ isGlobal: true, load: [configuration] }),
         MongooseModule.forRoot(config.mongodbUri),
         AuthModule.forRoot(auth),
@@ -28,7 +33,10 @@ export class AppModule {
         PaymentsModule,
       ],
       controllers: [AppController],
-      providers: [AppService],
+      providers: [
+        AppService,
+        { provide: APP_GUARD, useClass: ThrottlerGuard },
+      ],
     };
   }
 }

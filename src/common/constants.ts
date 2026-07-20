@@ -10,6 +10,3 @@ export enum ReservationStatus {
   EXPIRED = 'EXPIRED',
   CANCELLED = 'CANCELLED',
 }
-
-export const SEATS_COLLECTION = 'seats';
-export const RESERVATIONS_COLLECTION = 'reservations';

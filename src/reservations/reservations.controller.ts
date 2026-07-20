@@ -20,6 +20,7 @@ import { CurrentUser } from '../auth/current-user.decorator';
 import { CreateReservationDto } from './dto/create-reservation.dto';
 import { ReservationResponseDto } from './dto/reservation-response.dto';
 import { ReservationsService } from './reservations.service';
+import { ParseMongoIdPipe } from '../common/pipes/parse-mongo-id.pipe';
 
 @ApiTags('reservations')
 @ApiBearerAuth()
@@ -52,7 +53,7 @@ export class ReservationsController {
   @ApiOperation({ summary: 'Cancel an active reservation' })
   cancel(
     @CurrentUser() user: { id: string },
-    @Param('id') id: string,
+    @Param('id', ParseMongoIdPipe) id: string,
   ): Promise<void> {
     return this.reservationsService.cancel(user.id, id);
   }

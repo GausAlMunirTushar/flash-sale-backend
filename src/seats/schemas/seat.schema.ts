@@ -37,3 +37,5 @@ export class Seat {
 }
 
 export const SeatSchema = SchemaFactory.createForClass(Seat);
+
+SeatSchema.index({ status: 1, expiresAt: 1 });

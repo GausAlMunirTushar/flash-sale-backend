@@ -2,19 +2,24 @@ import {
   ConflictException,
   GoneException,
   Injectable,
+  InternalServerErrorException,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
+import crypto from 'crypto';
 import { Model, Types } from 'mongoose';
 import { ExpiryService } from '../common/expiry.service';
-import { ReservationStatus } from '../common/constants';
+import { ReservationStatus, SeatStatus } from '../common/constants';
 import { SeatsService } from '../seats/seats.service';
 import { ReservationResponseDto } from './dto/reservation-response.dto';
 import { Reservation, ReservationDocument } from './schemas/reservation.schema';
 
 @Injectable()
 export class ReservationsService {
+  private readonly logger = new Logger(ReservationsService.name);
+
   constructor(
     @InjectModel(Reservation.name)
     private readonly reservationModel: Model<ReservationDocument>,
@@ -28,14 +33,6 @@ export class ReservationsService {
     seatId: string,
   ): Promise<ReservationResponseDto> {
     await this.expiryService.releaseExpired();
-
-    const active = await this.reservationModel.findOne({
-      userId,
-      status: ReservationStatus.LOCKED,
-    });
-    if (active) {
-      throw new ConflictException('You already have an active reservation');
-    }
 
     const holdSeconds = this.configService.get<number>(
       'reservationHoldSeconds',
@@ -56,25 +53,39 @@ export class ReservationsService {
       throw new ConflictException('Seat already reserved');
     }
 
-    const reservation = await this.reservationModel.create({
-      _id: reservationId,
-      reservationCode: generateReservationCode(),
-      seatId: lockedSeat._id,
-      seatNumber: lockedSeat.seatNumber,
-      userId,
-      status: ReservationStatus.LOCKED,
-      expiresAt,
-      paidAt: null,
-    });
+    try {
+      const reservation = await this.reservationModel.create({
+        _id: reservationId,
+        reservationCode: generateReservationCode(),
+        seatId: lockedSeat._id,
+        seatNumber: lockedSeat.seatNumber,
+        userId,
+        status: ReservationStatus.LOCKED,
+        expiresAt,
+        paidAt: null,
+      });
 
-    return toReservationResponse(reservation);
+      return toReservationResponse(reservation);
+    } catch (err: unknown) {
+      const mongoErr = err as { code?: number };
+      if (mongoErr?.code === 11000) {
+        await this.seatsService.releaseSeat(lockedSeat._id);
+        throw new ConflictException('You already have an active reservation');
+      }
+      await this.seatsService.releaseSeat(lockedSeat._id);
+      this.logger.error(`Reservation creation failed`, (err as Error)?.stack);
+      throw new InternalServerErrorException('Failed to create reservation');
+    }
   }
 
   async findMine(userId: string): Promise<ReservationResponseDto | null> {
     await this.expiryService.releaseExpired();
 
     const reservation = await this.reservationModel
-      .findOne({ userId })
+      .findOne({
+        userId,
+        status: { $in: [ReservationStatus.LOCKED, ReservationStatus.PAID] },
+      })
       .sort({ createdAt: -1 });
     return reservation ? toReservationResponse(reservation) : null;
   }
@@ -133,10 +144,35 @@ export class ReservationsService {
     await this.seatsService.markPurchased(reservation.seatId);
     return toReservationResponse(updated);
   }
+
+  async reconcileInconsistencies(): Promise<number> {
+    const paidReservations = await this.reservationModel.find({
+      status: ReservationStatus.PAID,
+    });
+
+    let fixed = 0;
+    for (const reservation of paidReservations) {
+      const seat = await this.seatsService.findById(reservation.seatId);
+      if (!seat) {
+        this.logger.warn(
+          `Orphaned reservation ${reservation._id} — seat ${reservation.seatId} not found`,
+        );
+        continue;
+      }
+      if (seat.status === SeatStatus.LOCKED) {
+        await this.seatsService.markPurchased(reservation.seatId);
+        this.logger.log(
+          `Reconciled reservation ${reservation._id}: seat ${reservation.seatId} was LOCKED but reservation is PAID`,
+        );
+        fixed++;
+      }
+    }
+    return fixed;
+  }
 }
 
 function generateReservationCode(): string {
-  return `RSV-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+  return `RSV-${crypto.randomUUID().slice(0, 6).toUpperCase()}`;
 }
 
 function toReservationResponse(

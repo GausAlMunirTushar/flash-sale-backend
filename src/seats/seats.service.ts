@@ -42,13 +42,11 @@ export class SeatsService implements OnModuleInit {
   }
 
   async findAll(): Promise<SeatResponseDto[]> {
-    await this.expiryService.releaseExpired();
     const seats = await this.seatModel.find().sort({ row: 1, number: 1 });
     return seats.map(toSeatResponse);
   }
 
   async getStatistics(): Promise<SeatStatisticsResponseDto> {
-    await this.expiryService.releaseExpired();
 
     const [total, available, locked, sold] = await Promise.all([
       this.seatModel.countDocuments(),
