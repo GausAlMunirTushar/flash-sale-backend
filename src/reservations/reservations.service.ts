@@ -15,7 +15,7 @@ import { ExpiryService } from '../common/expiry.service';
 import { ReservationStatus, SeatStatus } from '../common/constants';
 import { SeatsService } from '../seats/seats.service';
 import { SmsService } from '../sms/sms.service';
-import { UserProfileService } from '../user-profile/user-profile.service';
+import { UserService } from '../user/user.service';
 import { ReservationResponseDto } from './dto/reservation-response.dto';
 import { Reservation, ReservationDocument } from './schemas/reservation.schema';
 
@@ -31,7 +31,7 @@ export class ReservationsService {
     private readonly configService: ConfigService,
     private readonly activityService: ActivityService,
     private readonly smsService: SmsService,
-    private readonly userProfileService: UserProfileService,
+    private readonly userService: UserService,
   ) {}
 
   async reserve(
@@ -78,7 +78,7 @@ export class ReservationsService {
       });
 
       if (phone) {
-        await this.userProfileService.setPhone(userId, phone);
+        await this.userService.setPhone(userId, phone);
       }
 
       await this.activityService.log({
@@ -186,7 +186,7 @@ export class ReservationsService {
     });
 
     const phone =
-      reservation.phone || (await this.userProfileService.getPhone(userId));
+      reservation.phone || (await this.userService.getPhone(userId));
     if (phone) {
       this.smsService
         .sendPurchaseConfirmation(

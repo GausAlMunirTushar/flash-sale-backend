@@ -15,7 +15,7 @@ import { PaymentsModule } from './payments/payments.module';
 import { ReservationsModule } from './reservations/reservations.module';
 import { SeatsModule } from './seats/seats.module';
 import { SmsModule } from './sms/sms.module';
-import { UserProfileModule } from './user-profile/user-profile.module';
+import { UserModule } from './user/user.module';
 
 @Module({})
 export class AppModule {
@@ -33,7 +33,7 @@ export class AppModule {
         CommonModule,
         GuestModule,
         SmsModule,
-        UserProfileModule,
+        UserModule,
         SeatsModule,
         ReservationsModule,
         PaymentsModule,
