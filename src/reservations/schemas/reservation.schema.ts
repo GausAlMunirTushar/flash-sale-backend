@@ -32,6 +32,15 @@ export class Reservation {
   @Prop({ type: Date, default: null })
   paidAt!: Date | null;
 
+  @Prop({ type: String, default: null })
+  userIp!: string | null;
+
+  @Prop({ type: String, default: null })
+  userAgent!: string | null;
+
+  @Prop({ type: Boolean, default: true })
+  isGuest!: boolean;
+
   createdAt!: Date;
   updatedAt!: Date;
 }

@@ -16,6 +16,8 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { BetterAuthGuard } from '../auth/better-auth.guard';
+import { ClientInfo } from '../common/decorators/client-info.decorator';
+import type { ClientInfo as ClientInfoType } from '../common/decorators/client-info.decorator';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { CreateReservationDto } from './dto/create-reservation.dto';
 import { ReservationResponseDto } from './dto/reservation-response.dto';
@@ -35,8 +37,9 @@ export class ReservationsController {
   reserve(
     @CurrentUser() user: { id: string },
     @Body() dto: CreateReservationDto,
+    @ClientInfo() clientInfo: ClientInfoType,
   ): Promise<ReservationResponseDto> {
-    return this.reservationsService.reserve(user.id, dto.seatId);
+    return this.reservationsService.reserve(user.id, dto.seatId, clientInfo);
   }
 
   @Get('me')

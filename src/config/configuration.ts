@@ -21,7 +21,8 @@ export default (): AppConfig => {
       process.env.MONGODB_URI ?? 'mongodb://localhost:27017/flash-sale',
     frontendUrl: process.env.FRONTEND_URL ?? 'http://localhost:3000',
     betterAuthSecret: secret,
-    betterAuthUrl: process.env.BETTER_AUTH_URL ?? 'http://localhost:4000',
+    betterAuthUrl:
+      process.env.BETTER_AUTH_URL ?? 'http://localhost:4000/api/auth',
     reservationHoldSeconds: parseInt(
       process.env.RESERVATION_HOLD_SECONDS ?? '300',
       10,

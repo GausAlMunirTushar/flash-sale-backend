@@ -8,11 +8,29 @@ import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import express from 'express';
 import helmet from 'helmet';
+import type { Request, Response, NextFunction } from 'express';
 import { AppModule } from './app.module';
 import { createAuth } from './auth/better-auth';
 import configuration from './config/configuration';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { connectMongo } from './database/mongo-connection';
+
+function rawCorsMiddleware(frontendUrl: string) {
+  return (_req: Request, res: Response, next: NextFunction) => {
+    res.setHeader('Access-Control-Allow-Origin', frontendUrl);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader(
+      'Access-Control-Allow-Methods',
+      'GET,POST,PUT,DELETE,PATCH,OPTIONS',
+    );
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+    if (_req.method === 'OPTIONS') {
+      res.sendStatus(204);
+      return;
+    }
+    next();
+  };
+}
 
 async function bootstrap() {
   const config = configuration();
@@ -20,6 +38,7 @@ async function bootstrap() {
   const auth = createAuth(db, client, config);
 
   const server = express();
+  server.use(rawCorsMiddleware(config.frontendUrl));
   server.use('/api/auth', toNodeHandler(auth));
 
   const app = await NestFactory.create(

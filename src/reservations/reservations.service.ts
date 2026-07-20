@@ -31,6 +31,7 @@ export class ReservationsService {
   async reserve(
     userId: string,
     seatId: string,
+    clientInfo?: { ip: string; userAgent: string; isGuest: boolean },
   ): Promise<ReservationResponseDto> {
     await this.expiryService.releaseExpired();
 
@@ -63,6 +64,9 @@ export class ReservationsService {
         status: ReservationStatus.LOCKED,
         expiresAt,
         paidAt: null,
+        userIp: clientInfo?.ip ?? null,
+        userAgent: clientInfo?.userAgent ?? null,
+        isGuest: clientInfo?.isGuest ?? true,
       });
 
       return toReservationResponse(reservation);
@@ -186,6 +190,9 @@ function toReservationResponse(
     status: reservation.status,
     expiresAt: reservation.expiresAt,
     paidAt: reservation.paidAt,
+    userIp: reservation.userIp,
+    userAgent: reservation.userAgent,
+    isGuest: reservation.isGuest,
     createdAt: reservation.createdAt,
   };
 }

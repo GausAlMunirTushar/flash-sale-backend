@@ -23,6 +23,15 @@ export class ReservationResponseDto {
   @ApiProperty({ example: null, nullable: true })
   paidAt: Date | null;
 
+  @ApiProperty({ example: '192.168.1.1', nullable: true })
+  userIp: string | null;
+
+  @ApiProperty({ example: 'Mozilla/5.0 ...', nullable: true })
+  userAgent: string | null;
+
+  @ApiProperty({ example: true })
+  isGuest: boolean;
+
   @ApiProperty({ example: '2026-07-20T10:24:30.000Z' })
   createdAt: Date;
 }
