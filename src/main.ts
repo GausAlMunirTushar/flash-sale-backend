@@ -15,16 +15,36 @@ import configuration from './config/configuration';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { connectMongo } from './database/mongo-connection';
 
-function rawCorsMiddleware(frontendUrl: string) {
-  return (_req: Request, res: Response, next: NextFunction) => {
-    res.setHeader('Access-Control-Allow-Origin', frontendUrl);
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader(
-      'Access-Control-Allow-Methods',
-      'GET,POST,PUT,DELETE,PATCH,OPTIONS',
-    );
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
-    if (_req.method === 'OPTIONS') {
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+  'https://localhost:3000',
+  'http://flashsale.gausalmunir.site',
+  'https://flashsale.gausalmunir.site',
+];
+
+function isOriginAllowed(origin: string | undefined): boolean {
+  if (!origin) return true;
+  return (
+    allowedOrigins.includes(origin) ||
+    /^https?:\/\/(localhost|127\.0\.0\.1):3000$/.test(origin) ||
+    /^https?:\/\/flashsale\.gausalmunir\.site$/.test(origin)
+  );
+}
+
+function rawCorsMiddleware() {
+  return (req: Request, res: Response, next: NextFunction) => {
+    const origin = req.headers.origin;
+    if (origin && isOriginAllowed(origin)) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+      res.setHeader(
+        'Access-Control-Allow-Methods',
+        'GET,POST,PUT,DELETE,PATCH,OPTIONS',
+      );
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+    }
+    if (req.method === 'OPTIONS') {
       res.sendStatus(204);
       return;
     }
@@ -38,7 +58,7 @@ async function bootstrap() {
   const auth = createAuth(db, client, config);
 
   const server = express();
-  server.use(rawCorsMiddleware(config.frontendUrl));
+  server.use(rawCorsMiddleware());
   server.use('/api/auth', toNodeHandler(auth));
 
   const app = await NestFactory.create(
@@ -52,7 +72,17 @@ async function bootstrap() {
   (app as any).use(compression());
   // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
   (app as any).use(cookieParser());
-  app.enableCors({ origin: config.frontendUrl, credentials: true });
+  
+  app.enableCors({
+    origin: (origin, callback) => {
+      if (!origin || isOriginAllowed(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
+    credentials: true,
+  });
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
   app.useGlobalFilters(new HttpExceptionFilter());
   app.enableShutdownHooks();
