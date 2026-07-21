@@ -21,6 +21,8 @@ const allowedOrigins = [
   'https://localhost:3000',
   'http://flashsale.gausalmunir.site',
   'https://flashsale.gausalmunir.site',
+  'http://flashseat.gausalmunir.site',
+  'https://flashseat.gausalmunir.site',
 ];
 
 function isOriginAllowed(origin: string | undefined): boolean {
@@ -28,7 +30,7 @@ function isOriginAllowed(origin: string | undefined): boolean {
   return (
     allowedOrigins.includes(origin) ||
     /^https?:\/\/(localhost|127\.0\.0\.1):3000$/.test(origin) ||
-    /^https?:\/\/flashsale\.gausalmunir\.site$/.test(origin)
+    /^https?:\/\/(flashsale|flashseat)\.gausalmunir\.site$/.test(origin)
   );
 }
 
